@@ -3,28 +3,33 @@
 /**
  * CustomStorage is an interface for localStorage with a few useful tweaks:
  *
- * 1. Storing plain objects (without methods) will automatically
- *    convert them to JSON strings and decode upon retrieval.
+ * 1. Storing plain objects (without methods) is supported by automatically
+ *    converting them to JSON strings and decoding upon retrieval.
  * 2. Keys will be automatically prefixed with the specified keyword.
  *    This avoids naming clashes between, say, different parts of the
  *    system wanting to store data under the same name.
  * 3. Stored objects can be merged with new data, rather than be overwritten, if need be.
  * 4. Fallback to object based storage if the browser doesn't support localStorage.
+ * 5. Option to specify expiration time. Requires Moment.js.
  *
  * Usage:
  *
  * var storage = new CustomStorage('prefixName');
  * storage.set('foo', 'bar');
- * storage.get('foo'); // Returns 'bar'
+ * storage.get('foo');  // Returns 'bar'
  * storage.erase('foo');
- * storage.get('foo'); // Returns null
+ * storage.get('foo');  // Returns null
  *
  * storage.set('obj', { foo: true, baz: 2 });
- * storage.get('obj').baz; // Returns 2
+ * storage.get('obj').baz;  // Returns 2
  * storage.set('obj', { baz: 5 }, { merge: true });
- * storage.merge('obj', { baz: 5}); // Shortcut for previous line
- * storage.get('obj'); // Returns { foo: true, baz: 5 }
+ * storage.merge('obj', { baz: 5});  // Shortcut for previous line
+ * storage.get('obj');  // Returns { foo: true, baz: 5 }
  *
+ * storage.set('timed-data', 'foo', { expiresIn: '2 minutes' });
+ * storage.get('timed-data');  // Returns "foo" for only 2 minutes.
+ *
+ * @author Mattias Saldre
  * @param {String} prefix
  * @constructor
  */
@@ -76,20 +81,26 @@ function CustomStorage(prefix) {
  */
 CustomStorage.prototype.set = function(key, value, options) {
   options = $.extend({
+    expiresIn: false,
     merge: false
   }, options);
 
+  // Create a container object to allow embedding meta
+  // data in addition to the actual data.
+  var storageItem = {
+    data: value
+  };
+
   // Stored objects can be merged with new info.
   if ( options.merge && $.isPlainObject(this.get(key)) ) {
-    value = $.extend(this.get(key) || {}, value);
+    storageItem.data = $.extend(this.get(key) || {}, value);
   }
 
-  // Objects are converted to JSON format.
-  if ( $.isPlainObject(value) ) {
-    value = JSON.stringify(value);
+  if ( typeof options.expiresIn == 'string' ) {
+    storageItem.expiresAt = this.calculateExpirationTimestamp(options.expiresIn);
   }
 
-  this.driver.setItem(this.prefixKey(key), value);
+  this.driver.setItem(this.prefixKey(key), JSON.stringify(storageItem));
 };
 
 
@@ -108,16 +119,22 @@ CustomStorage.prototype.merge = function(key, obj) {
  * Retrieves the value under the specified key.
  *
  * @param {String} key
+ * @return {*}
  */
 CustomStorage.prototype.get = function(key) {
-  var value = this.driver.getItem(this.prefixKey(key));
 
-  // Decode objects stored in JSON format.
-  try {
-    value = JSON.parse(value);
-  } catch(e) {}
+  if ( !this.keyExists(key) ) {
+    return null;
+  }
 
-  return value;
+  var storageItem = JSON.parse(this.driver.getItem(this.prefixKey(key)));
+
+  if ( this.isExpired(storageItem) ) {
+    this.erase(key);
+    return null;
+  }
+
+  return storageItem && storageItem.data;
 };
 
 
@@ -162,4 +179,53 @@ CustomStorage.prototype.executeOnKey = function(key, callback, options) {
  */
 CustomStorage.prototype.prefixKey = function(key) {
   return this.prefix + ':' + key;
+};
+
+
+/**
+ * Checks if the specified key exists.
+ *
+ * @param {String} key
+ * @return {Boolean}
+ */
+CustomStorage.prototype.keyExists = function(key) {
+  return !!this.driver.getItem(this.prefixKey(key));
+};
+
+
+/**
+ * Calculates timestamp when the data will be considered to be expired.
+ * Requires Moment.js.
+ *
+ * The string format is "amount timeUnit", e.g.:
+ *   "30 minutes"
+ *   "1 day"
+ *   "5 months
+ *   "2 years"
+ *
+ * @param {String} expiresIn
+ * @return {Number}
+ */
+CustomStorage.prototype.calculateExpirationTimestamp = function(expiresIn) {
+  var now = moment();
+  var amount = expiresIn.split(' ')[0];
+  var timeUnit = expiresIn.split(' ')[1];
+
+  return +now.add(amount, timeUnit).toDate();
+};
+
+
+/**
+ * Checks if the stored item has expired.
+ *
+ * @param {Object} storageItem
+ * @return {Boolean}
+ */
+CustomStorage.prototype.isExpired = function(storageItem) {
+
+  if ( !storageItem ) {
+    return false;
+  }
+
+  return storageItem.expiresAt < +new Date;
 };
