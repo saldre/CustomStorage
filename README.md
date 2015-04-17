@@ -1,5 +1,6 @@
 # CustomStorage
 CustomStorage is an interface for localStorage with a few useful tweaks:
+
 1. Storing plain objects (without methods) is supported by automatically converting them to JSON strings and decoding upon retrieval.
 2. Keys will be automatically prefixed with the specified keyword. This avoids naming clashes between, say, different parts of the system wanting to store data under the same name.
 3. Stored objects can be merged with new data, rather than be overwritten, if need be.
