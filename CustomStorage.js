@@ -79,6 +79,7 @@ function CustomStorage(prefix) {
  * @param {Object} other
  * @return {Object}
  */
+function extend(source, other) {
   for ( var property in other ) {
     if ( other.hasOwnProperty(property) ) {
       source[property] = other[property];
@@ -159,6 +160,7 @@ CustomStorage.convertTimeUnitToMilliseconds = function(timeUnit) {
  * @param {Object} [options]
  */
 CustomStorage.prototype.set = function(key, value, options) {
+  options = extend({
     expiresIn: false,
     merge: false
   }, options);
@@ -171,6 +173,7 @@ CustomStorage.prototype.set = function(key, value, options) {
 
   // Stored objects can be merged with new info.
   if ( options.merge ) {
+    storageItem.data = extend(this.get(key) || {}, value);
   }
 
   if ( typeof options.expiresIn == 'string' ) {
@@ -234,6 +237,7 @@ CustomStorage.prototype.erase = function(key) {
  */
 CustomStorage.prototype.executeOnKey = function(key, callback, options) {
   var value = this.get(key);
+  options = extend({
     erase: false
   }, options);
 
