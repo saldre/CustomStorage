@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html>
+<head lang="en">
+  <meta charset="UTF-8">
+  <title>CustomStorage tests</title>
+  <link type="text/css" rel="stylesheet" href="//code.jquery.com/qunit/qunit-1.18.0.css">
+</head>
+<body>
+  <div id="qunit"></div>
+  <div id="qunit-fixture"></div>
+
+  <script src="//code.jquery.com/jquery-1.11.2.min.js"></script>
+  <script src="//code.jquery.com/qunit/qunit-1.18.0.js"></script>
+  <script src="CustomStorage.js"></script>
+
+  <script>
+    var storage = new CustomStorage('test');
+
+    QUnit.test('Core functionality', function(assert) {
+      storage.set('foo', 'bar');
+      assert.equal(storage.get('foo'), 'bar', 'Set and get');
+
+      storage.set('foo', 'baz');
+      assert.equal(storage.get('foo'), 'baz', 'Update and get');
+
+      storage.erase('foo');
+      assert.equal(storage.get('foo'), null, 'Erase');
+    });
+
+    QUnit.test('Helper functions', function(assert) {
+      assert.equal(storage.prefixKey('foo'), storage.prefix + ':' + 'foo', 'prefixKey()');
+
+      storage.set('foo', 'bar');
+      assert.equal(storage.keyExists('foo'), true, 'keyExists()');
+
+      storage.executeOnKey('foo', function(value) {
+        assert.equal(value, 'bar', 'executeOnKey()');
+      });
+
+      storage.executeOnKey('foo', function() {}, { erase: true });
+      assert.equal(storage.get('foo'), null, 'executeOnKey({ erase: true })');
+    });
+
+    QUnit.test('Expiration related', function(assert) {
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('second'), 1000, 'Convert second to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('minute'), 1000 * 60, 'Convert minute to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('hour'), 1000 * 60 * 60, 'Convert hour to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('day'), 1000 * 60 * 60 * 24, 'Convert day to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('week'), 1000 * 60 * 60 * 24 * 7, 'Convert week to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('month'), 1000 * 60 * 60 * 24 * 30, 'Convert month to milliseconds');
+      assert.equal(CustomStorage.convertTimeUnitToMilliseconds('year'), 1000 * 60 * 60 * 24 * 365, 'Convert year to milliseconds');
+    });
+
+    QUnit.test('Merge with existing data', function(assert) {
+      storage.set('object', { foo: true });
+      assert.equal(storage.get('object').foo, true, 'Store an object');
+
+      storage.merge('object', { bar: 3 });
+      assert.equal(storage.get('object').foo, true, 'Check if previous properties are intact after merging new data');
+      assert.equal(storage.get('object').bar, 3, 'Read merged data');
+    });
+
+    QUnit.test('Expiring data', function(assert) {
+      storage.set('timed', 'deja vu', { expiresIn: '2 seconds' });
+      assert.equal(storage.get('timed'), 'deja vu', 'Retrieve expiring data');
+
+      var done = assert.async();
+
+      setTimeout(function() {
+        assert.equal(storage.get('timed'), 'deja vu', 'Retrieve expiring data after 1 second');
+      }, 1000);
+
+      setTimeout(function() {
+        assert.equal(storage.get('timed'), null, 'Check if the data has expired');
+        done();
+      }, 2100);
+    });
+  </script>
+</body>
+</html>
