@@ -71,6 +71,23 @@ function CustomStorage(prefix) {
   }
 }
 
+
+/**
+ * Merges properties from the second object into the first one.
+ *
+ * @param {Object} source
+ * @param {Object} other
+ * @return {Object}
+ */
+  for ( var property in other ) {
+    if ( other.hasOwnProperty(property) ) {
+      source[property] = other[property];
+    }
+  }
+
+  return source;
+}
+
 (function() {
   var UNITS = CustomStorage.TIME_UNITS = {
     SECOND: 1000
@@ -142,7 +159,6 @@ CustomStorage.convertTimeUnitToMilliseconds = function(timeUnit) {
  * @param {Object} [options]
  */
 CustomStorage.prototype.set = function(key, value, options) {
-  options = $.extend({
     expiresIn: false,
     merge: false
   }, options);
@@ -154,8 +170,7 @@ CustomStorage.prototype.set = function(key, value, options) {
   };
 
   // Stored objects can be merged with new info.
-  if ( options.merge && $.isPlainObject(this.get(key)) ) {
-    storageItem.data = $.extend(this.get(key) || {}, value);
+  if ( options.merge ) {
   }
 
   if ( typeof options.expiresIn == 'string' ) {
@@ -219,7 +234,6 @@ CustomStorage.prototype.erase = function(key) {
  */
 CustomStorage.prototype.executeOnKey = function(key, callback, options) {
   var value = this.get(key);
-  options = $.extend({
     erase: false
   }, options);
 
