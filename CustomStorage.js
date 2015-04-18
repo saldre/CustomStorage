@@ -71,6 +71,68 @@ function CustomStorage(prefix) {
   }
 }
 
+(function() {
+  var UNITS = CustomStorage.TIME_UNITS = {
+    SECOND: 1000
+  };
+
+  UNITS.MINUTE = 60 * UNITS.SECOND;
+  UNITS.HOUR = 60 * UNITS.MINUTE;
+  UNITS.DAY = 24 * UNITS.HOUR;
+  UNITS.WEEK = 7 * UNITS.DAY;
+  UNITS.MONTH = 30 * UNITS.DAY;
+  UNITS.YEAR = 365 * UNITS.DAY;
+})();
+
+
+/**
+ * Calculates timestamp when the data will be considered to be expired.
+ *
+ * The string format is "amount timeUnit", e.g.:
+ *   "30 minutes"
+ *   "1 day"
+ *   "5 months
+ *   "2 years"
+ *
+ * @param {String} expiresIn
+ * @return {Number}
+ */
+CustomStorage.calculateExpirationTimestamp = function(expiresIn) {
+  var now = +new Date;
+
+  return now + CustomStorage.convertExpirationStringToMilliseconds(expiresIn);
+};
+
+
+/**
+ * @param {String} expiresIn
+ * @return {Number}
+ */
+CustomStorage.convertExpirationStringToMilliseconds = function(expiresIn) {
+  var amount = expiresIn.split(' ')[0];
+  var timeUnit = expiresIn.split(' ')[1];
+
+  return amount * CustomStorage.convertTimeUnitToMilliseconds(timeUnit);
+};
+
+
+/**
+ * @param {String} timeUnit
+ * @return {String}
+ */
+CustomStorage.normalizeTimeUnit = function(timeUnit) {
+  return timeUnit.replace(/s$/, '').toUpperCase();
+};
+
+
+/**
+ * @param {String} timeUnit
+ * @return {Number}
+ */
+CustomStorage.convertTimeUnitToMilliseconds = function(timeUnit) {
+  return CustomStorage.TIME_UNITS[CustomStorage.normalizeTimeUnit(timeUnit)];
+};
+
 
 /**
  * Stores the value under the specified key.
@@ -97,7 +159,7 @@ CustomStorage.prototype.set = function(key, value, options) {
   }
 
   if ( typeof options.expiresIn == 'string' ) {
-    storageItem.expiresAt = this.calculateExpirationTimestamp(options.expiresIn);
+    storageItem.expiresAt = CustomStorage.calculateExpirationTimestamp(options.expiresIn);
   }
 
   this.driver.setItem(this.prefixKey(key), JSON.stringify(storageItem));
@@ -190,28 +252,6 @@ CustomStorage.prototype.prefixKey = function(key) {
  */
 CustomStorage.prototype.keyExists = function(key) {
   return !!this.driver.getItem(this.prefixKey(key));
-};
-
-
-/**
- * Calculates timestamp when the data will be considered to be expired.
- * Requires Moment.js.
- *
- * The string format is "amount timeUnit", e.g.:
- *   "30 minutes"
- *   "1 day"
- *   "5 months
- *   "2 years"
- *
- * @param {String} expiresIn
- * @return {Number}
- */
-CustomStorage.prototype.calculateExpirationTimestamp = function(expiresIn) {
-  var now = moment();
-  var amount = expiresIn.split(' ')[0];
-  var timeUnit = expiresIn.split(' ')[1];
-
-  return +now.add(amount, timeUnit).toDate();
 };
 
 
