@@ -41,7 +41,15 @@ function CustomStorage(prefix) {
   }
 
   var driver = 'localStorage';
-  this.driver = window[driver];
+
+  try {
+    this.driver = window[driver];
+  } catch (e) {
+    console.warn('CustomStorage: access to ' + driver + ' restricted by browser, possibly due to cookies and third party data being blocked');
+    console.warn(e);
+    return;
+  }
+
   this.prefix = prefix;
 
   // Fall back to object based approach if the browser does not support the selected
@@ -269,7 +277,9 @@ CustomStorage.prototype.prefixKey = function(key) {
  * @return {Boolean}
  */
 CustomStorage.prototype.keyExists = function(key) {
-  return !!this.driver.getItem(this.prefixKey(key));
+  if (this.driver) {
+    return !!this.driver.getItem(this.prefixKey(key));
+  }
 };
 
 
